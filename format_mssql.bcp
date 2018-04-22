@@ -1,0 +1,5 @@
+12.0
+3
+1       SQLCHAR          0       0      ","    3     UT                    ""
+2       SQLCHAR          0       0      ","    4     APRICE                ""
+3       SQLCHAR          0       0      "\n"   5     AVOLUME               ""
