@@ -127,7 +127,7 @@ begin
     
     insert into QUOTES_SIMP
     with 
-      T1 as (select --+ index_asc (a TRANSACTIONS_PKIOT)
+      T1 as (select --Z+ index_asc (a TRANSACTIONS_PKIOT)
                     STOCK_ID
                   , UT
                   , avg (APRICE)  keep (dense_rank first order by SEQ_NUM)               as AOPEN
@@ -138,6 +138,7 @@ begin
                   , count (*)                                                            as ACOUNT
              from TRANSACTIONS a
              where TRANSACTION_NUM <= l_max_transaction_num
+--             where rownum <= l_max_transaction_num
              group by a.STOCK_ID, a.UT)
       , T2 as (select rownum as STRIPE_ID from dual connect by level <= 18)
     select
@@ -173,7 +174,7 @@ begin
     l_op_start_tsltz := systimestamp;
 
     insert into QUOTES_CALC
-    select --+ index_asc (a TRANSACTIONS_PKIOT)
+    select --Z+ index_asc (a TRANSACTIONS_PKIOT)
            1 as STRIPE_ID
          , STOCK_ID
          , UT
@@ -185,6 +186,7 @@ begin
          , count (*)                                                 
     from TRANSACTIONS a
     where TRANSACTION_NUM <= l_max_transaction_num
+--    where rownum <= l_max_transaction_num
     group by a.STOCK_ID, a.UT;
    
     for i in 1..17
@@ -342,7 +344,7 @@ begin
     l_op_start_tsltz := systimestamp;
 
     insert into QUOTES_UDAF
-    select --+ index_asc (a TRANSACTIONS_PKIOT)
+    select --Z+ index_asc (a TRANSACTIONS_PKIOT)
            1 as STRIPE_ID
          , a.STOCK_ID
          , a.UT
@@ -354,6 +356,7 @@ begin
          , count (*)                                                       as ACOUNT
     from TRANSACTIONS a
     where TRANSACTION_NUM <= l_max_transaction_num
+--    where rownum <= l_max_transaction_num
     group by a.STOCK_ID, a.UT;
    
     for i in 1..17
@@ -504,8 +507,10 @@ begin
     l_op_start_tsltz := systimestamp;
     
     insert into QUOTES_PPTF
-    select * from table (THINNING_PPTF_P.F (cursor (select STOCK_ID, UT, SEQ_NUM, APRICE, AVOLUME from TRANSACTIONS
+    select * from table (THINNING_PPTF_P.F (cursor (select --Z+ index_asc(a TRANSACTIONS_PKIOT)
+                                                           STOCK_ID, UT, SEQ_NUM, APRICE, AVOLUME from TRANSACTIONS a
                                                     where TRANSACTION_NUM <= l_max_transaction_num
+                                                    --where rownum <= l_max_transaction_num
                                                     )));
     
     insert into THINNING_LOG (TEST_CASE, ROW_COUNT, ALG_NAME, DURATION_IDS) values (p_case_name, l_max_transaction_num, 'PPTF', systimestamp - l_op_start_tsltz);
@@ -532,15 +537,17 @@ begin
     insert into QUOTES_MODE
     with
       SOURCETRANS
-         as (select  1 as STRIPE_ID, STOCK_ID, UT
-               , avg (APRICE)  keep (dense_rank first order by SEQ_NUM) as AOPEN
-               , min (APRICE)                                           as AMIN
-               , max (APRICE)                                           as AMAX
-               , avg (APRICE)  keep (dense_rank last  order by SEQ_NUM) as ACLOSE
-               , sum (AVOLUME)                                          as AVOLUME
-               , count (*)                                              as ACOUNT
-             from TRANSACTIONS
+         as (select --Z+ index_asc(a TRANSACTIONS_PKIOT)
+                    1 as STRIPE_ID, STOCK_ID, UT
+                  , avg (APRICE)  keep (dense_rank first order by SEQ_NUM) as AOPEN
+                  , min (APRICE)                                           as AMIN
+                  , max (APRICE)                                           as AMAX
+                  , avg (APRICE)  keep (dense_rank last  order by SEQ_NUM) as ACLOSE
+                  , sum (AVOLUME)                                          as AVOLUME
+                  , count (*)                                              as ACOUNT
+             from TRANSACTIONS a
              where TRANSACTION_NUM <= l_max_transaction_num
+--             where rownum <= l_max_transaction_num
              group by STOCK_ID, UT)
     , REFMOD_T1 (STRIPE_ID, STOCK_ID, PARENT_UT, UT)
         as (select 1, STOCK_ID, TLS_P.TRUNC_UT (UT, 2), UT
@@ -580,7 +587,8 @@ begin
     , AVOLUME [iteration_number + 2, any, any] = sum (AVOLUME)[cv (STRIPE_ID) - 1, cv (UT), any]                                    
     , ACOUNT  [iteration_number + 2, any, any] = sum (ACOUNT) [cv (STRIPE_ID) - 1, cv (UT), any]                                    
     )
-    order by 1, 2, 3, 4;
+--    order by 1, 2, 3, 4
+;
 
     insert into THINNING_LOG (TEST_CASE, ROW_COUNT, ALG_NAME, DURATION_IDS) values (p_case_name, l_max_transaction_num, 'MODE', systimestamp - l_op_start_tsltz);
    
@@ -607,7 +615,7 @@ begin
 
     select trunc (log (2, count (*))) into v1 from TRANSACTIONS;
     
-    for p in 4..least (24, v1)
+    for p in 14..least (24, v1)
     loop
     
     
@@ -615,9 +623,9 @@ begin
         THINNING_ALL_CALC_T (power (2, p), v_case_name);
         THINNING_ALL_UDAF_T (power (2, p), v_case_name);
         THINNING_ALL_PPTF_T (power (2, p), v_case_name);
---        if p <= 18 then
---        THINNING_ALL_MODE_T ('Y', power (2, p));
---        end if;        
+        --if p <= 13 then
+        --THINNING_ALL_MODE_T (power (2, p), v_case_name);
+        --end if;        
         
     end loop;
 
