@@ -1,3 +1,4 @@
+/*
 drop view CHECK_QUOTES_STRONG_V;
 drop view CHECK_QUOTES_SIMPLE_V;
 drop view TIMES_V;
@@ -14,6 +15,7 @@ drop table REF_STOCKS purge;
 drop sequence REF_STOCKS_S;
 drop table TRANSACTIONS_RAW purge;
 drop table COMMIT_PERIODICAL_LOG;
+*/
 
 --******************************************************************************
 
@@ -24,7 +26,6 @@ create table COMMIT_PERIODICAL_LOG (
     , constraint COMMIT_PERIODICAL_LOG_PKIOT primary key (TSLTZ)
 ) organization index;
 
---create index COMMIT_PERIODICAL_LOG_I1 on COMMIT_PERIODICAL_LOG(TSLTZ);
 
 
 create table TRANSACTIONS_RAW (
@@ -40,6 +41,7 @@ tablespace DATA_064M;
 grant select on TRANSACTIONS_RAW to public;
 
 
+
 create sequence REF_STOCKS_S nocache;
 
 create table REF_STOCKS (
@@ -49,6 +51,7 @@ create table REF_STOCKS (
 ) organization index;
 
 alter table REF_STOCKS add constraint REF_STOCK_UK1 unique (ANAME);
+
 
 
 create table TRANSACTIONS (
@@ -68,6 +71,7 @@ parallel 4 nologging;
 
 --create index TRANSACTIONS_IFKP on TRANSACTIONS (STOCK_ID) compress 1;
 
+
 --******************************************************************************
 
 create table QUOTES_SIMP (
@@ -81,7 +85,6 @@ create table QUOTES_SIMP (
     , AVOLUME       number not null
     , ACOUNT        number not null
 );
-
 
 create table QUOTES_CALC (
       STRIPE_ID     number not null
@@ -108,9 +111,7 @@ create table QUOTES_UDAF (
     , AVOLUME       number not null
     , ACOUNT        number not null
 );
-
 create bitmap index QUOTES_UDAF_IB1 on QUOTES_UDAF (STRIPE_ID);
-
 
 create table QUOTES_PPTF (
       STRIPE_ID     number not null
@@ -124,7 +125,6 @@ create table QUOTES_PPTF (
     , ACOUNT        number not null
 );
 
-
 create table QUOTES_MODE (
       STRIPE_ID     number not null
     , STOCK_ID      number not null
@@ -137,6 +137,7 @@ create table QUOTES_MODE (
     , ACOUNT        number not null
 );
 
+--******************************************************************************
 
 create table THINNING_LOG (
       TEST_CASE     varchar2 (128) not null
@@ -146,6 +147,7 @@ create table THINNING_LOG (
 );
 
 create index THINNING_LOG_I1 on THINNING_LOG (TEST_CASE, ROW_COUNT, ALG_NAME);
+
 
 
 create view CHECK_QUOTES_SIMPLE_V as 
@@ -159,6 +161,7 @@ select 'PPTF'            , count (*)        from QUOTES_PPTF
 union all
 select 'MODE'            , count (*)        from QUOTES_MODE
 order by 1;
+
 
 
 create view CHECK_QUOTES_STRONG_V as
@@ -194,7 +197,7 @@ select TEST_CASE, to_char (ROW_COUNT, '999G999G999G990') as ROW_COUNT
      , rtrim (to_char (UDAF, '9999990.00')) as UDAF_D
      , rtrim (to_char (PPTF, '9999990.00')) as PPTF_D
      , rtrim (to_char ("MODE", '9999990.00')) as MODE_D
-     , '-' S
+     , '          ' as S
      , rtrim (to_char (ROW_COUNT / SIMP, '9999990.00')) as SIMP_TRPS
      , rtrim (to_char (ROW_COUNT / CALC, '9999990.00')) as CALC_TRPS
      , rtrim (to_char (ROW_COUNT / UDAF, '9999990.00')) as UDAF_TRPS

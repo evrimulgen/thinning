@@ -39,15 +39,9 @@ select STOCK_ID, UT, SEQ_NUM, APRICE, AVOLUME
      , row_number () over (order by TRANS_NUM_IN_STOCK, STOCK_ID) - 1 as TRANSACTION_NUM
 from T1
 where APRICE between APRICE_EXP_VAL - 2 * APRICE_STD_DEV and APRICE_EXP_VAL + 2 * APRICE_STD_DEV
-order by 1, 2, 3;
+--order by 1, 2, 3
+;
  
 commit;
-
---****** Command 9.4
-
--- This expensive index needed only for uniform querying source treansactions to send to input thinning functions
---create unique index TRANSACTIONS_I1 on TRANSACTIONS (TRANSACTION_NUM, STOCK_ID, UT, SEQ_NUM, APRICE, AVOLUME);
-
-
 
 

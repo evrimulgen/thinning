@@ -6,6 +6,8 @@ grant connect, resource, create view to THINNING;
 
 create user THINNING_LIVE identified by Qwertyu1 default tablespace DATA_064M;
 grant connect, resource, create view to THINNING_LIVE;
+grant create job to THINNING_LIVE;
+grant execute on dbms_alert to THINNING_LIVE;
 
 
 begin

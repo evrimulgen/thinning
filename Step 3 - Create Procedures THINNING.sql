@@ -1,3 +1,4 @@
+/*
 drop procedure THINNING_ALL_T;
 drop procedure THINNING_ALL_SIMP_T;
 drop procedure THINNING_ALL_CALC_T;
@@ -10,6 +11,7 @@ drop type THINNING_UDAF_IMPL_T;
 drop type QUOTES_T;
 drop type QUOTE_T;
 drop package TLS_P;
+*/
 
 --******************************************************************************
 --****** CREATING
@@ -17,13 +19,13 @@ drop package TLS_P;
 
 create package TLS_P is
 
-function DATE2UT (p_D date) return number deterministic;
-function DATESTR2UT (p_S varchar2) return number deterministic;
-function UT2DATE (p_UT number) return date deterministic;
-function UT2DATESTR (p_UT number) return varchar2 deterministic;
-procedure COMMIT_PERIODICAL (p_period_seconds integer default 60, p_tag varchar2 default null);
-function INTERVALDS2NUMBER (p interval day to second) return number deterministic;
-function TRUNC_UT (p_UT number, p_StripeTypeId number) return number deterministic result_cache parallel_enable;
+    function DATE2UT (p_D date) return number deterministic;
+    function DATESTR2UT (p_S varchar2) return number deterministic;
+    function UT2DATE (p_UT number) return date deterministic;
+    function UT2DATESTR (p_UT number) return varchar2 deterministic;
+    procedure COMMIT_PERIODICAL (p_period_seconds integer default 60, p_tag varchar2 default null);
+    function INTERVALDS2NUMBER (p interval day to second) return number deterministic;
+    function TRUNC_UT (p_UT number, p_StripeTypeId number) return number deterministic result_cache parallel_enable;
 
 end;
 /
@@ -80,10 +82,10 @@ function TRUNC_UT (p_UT number, p_StripeTypeId number) return number determinist
     ret_value   number;
 begin
     case p_StripeTypeId
-    when 1  then ret_value := trunc (p_UT / 1) * 1;
-    when 2  then ret_value := trunc (p_UT / 5) * 5;
-    when 3  then ret_value := trunc (p_UT / 15) * 15;
-    when 4  then ret_value := trunc (p_UT / 30) * 30;
+    when 1  then ret_value :=  trunc (p_UT / 1) * 1;
+    when 2  then ret_value :=  trunc (p_UT / 5) * 5;
+    when 3  then ret_value :=  trunc (p_UT / 15) * 15;
+    when 4  then ret_value :=  trunc (p_UT / 30) * 30;
     when 5  then ret_value :=  trunc (p_UT / 60) * 60;
     when 6  then ret_value :=  trunc (p_UT / 300) * 300;
     when 7  then ret_value :=  trunc (p_UT / 900) * 900;
@@ -219,8 +221,8 @@ end;
 --******** UDAF ****************************************************************
 
 create type QUOTE_T as object (STRIPE_ID number, STOCK_ID number, UT number
-                                        , AOPEN number, AMIN number, AMAX number, ACLOSE number
-                                        , AVOLUME number, ACOUNT number);
+                             , AOPEN number, AMIN number, AMAX number, ACLOSE number
+                             , AVOLUME number, ACOUNT number);
 /
 
 create type QUOTES_T as table of QUOTE_T;
@@ -587,7 +589,7 @@ begin
     , AVOLUME [iteration_number + 2, any, any] = sum (AVOLUME)[cv (STRIPE_ID) - 1, cv (UT), any]                                    
     , ACOUNT  [iteration_number + 2, any, any] = sum (ACOUNT) [cv (STRIPE_ID) - 1, cv (UT), any]                                    
     )
---    order by 1, 2, 3, 4
+    order by 1, 2, 3, 4
 ;
 
     insert into THINNING_LOG (TEST_CASE, ROW_COUNT, ALG_NAME, DURATION_IDS) values (p_case_name, l_max_transaction_num, 'MODE', systimestamp - l_op_start_tsltz);
