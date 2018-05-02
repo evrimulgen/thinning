@@ -538,59 +538,48 @@ begin
     
     insert into QUOTES_MODE
     with
-      SOURCETRANS
-         as (select --Z+ index_asc(a TRANSACTIONS_PKIOT)
-                    1 as STRIPE_ID, STOCK_ID, UT
-                  , avg (APRICE)  keep (dense_rank first order by SEQ_NUM) as AOPEN
-                  , min (APRICE)                                           as AMIN
-                  , max (APRICE)                                           as AMAX
-                  , avg (APRICE)  keep (dense_rank last  order by SEQ_NUM) as ACLOSE
-                  , sum (AVOLUME)                                          as AVOLUME
-                  , count (*)                                              as ACOUNT
+      SOURCETRANS (STRIPE_ID, STOCK_ID, UT, AOPEN, AMIN, AMAX, ACLOSE, AVOLUME, ACOUNT)
+         as (select 1, STOCK_ID, UT
+                  , avg (APRICE) keep (dense_rank first order by SEQ_NUM)
+                  , min (APRICE)
+                  , max (APRICE)
+                  , avg (APRICE) keep (dense_rank last  order by SEQ_NUM)
+                  , sum (AVOLUME)
+                  , count (*)
              from TRANSACTIONS a
              where TRANSACTION_NUM <= l_max_transaction_num
---             where rownum <= l_max_transaction_num
+             --where rownum <= 1000
              group by STOCK_ID, UT)
     , REFMOD_T1 (STRIPE_ID, STOCK_ID, PARENT_UT, UT)
-        as (select 1, STOCK_ID, TLS_P.TRUNC_UT (UT, 2), UT
-            from SOURCETRANS
-            union all
-            select STRIPE_ID + 1, STOCK_ID, TLS_P.TRUNC_UT (PARENT_UT, STRIPE_ID + 2) as PARENT_UT, PARENT_UT
-            from REFMOD_T1
-            where STRIPE_ID <= 17)
-    , REFMOD_T2 as (select distinct * from REFMOD_T1 order by 1, 2, 3)
-    , REFMOD_T3
-        as (select --t+ use_merge (tab tabop tabcl)
-                   tab.STRIPE_ID, tab.STOCK_ID, tab.PARENT_UT, tab.UT
+        as (select distinct b.STRIPE_ID, a.STOCK_ID, TLS_P.TRUNC_UT (UT, b.STRIPE_ID + 1), TLS_P.TRUNC_UT (UT, b.STRIPE_ID)
+            from SOURCETRANS a, (select rownum as STRIPE_ID from dual connect by level <= 18) b)                  
+    , REFMOD
+        as (select tab.STRIPE_ID, tab.STOCK_ID, tab.PARENT_UT, tab.UT
                  , min (tabop.UT) as UT_OPEN, max (tabcl.UT) as UT_CLOSE
-            from REFMOD_T2 tab, REFMOD_T2 tabop, REFMOD_T2 tabcl
+            from REFMOD_T1 tab, REFMOD_T1 tabop, REFMOD_T1 tabcl
             where tab.STRIPE_ID = tabop.STRIPE_ID(+) + 1 and tab.STOCK_ID = tabop.STOCK_ID(+) and tab.UT = tabop.PARENT_UT(+) 
               and tab.STRIPE_ID = tabcl.STRIPE_ID(+) + 1 and tab.STOCK_ID = tabcl.STOCK_ID(+) and tab.UT = tabcl.PARENT_UT(+)
             group by tab.STRIPE_ID, tab.STOCK_ID, tab.PARENT_UT, tab.UT)
-    , REFMOD_FIN
-        as (select STRIPE_ID, STOCK_ID, PARENT_UT, UT, UT_OPEN, UT_CLOSE
-                 , nvl (lead (UT) over (partition by STRIPE_ID, STOCK_ID order by UT), 9999999999) as NEXT_STRIPE_UT
-            from REFMOD_T3)
-    , MAIN_TAB
-        as (select a.STRIPE_ID, a.STOCK_ID, a.PARENT_UT, a.UT, b.AOPEN, b.AMIN, b.AMAX, b.ACLOSE, b.AVOLUME, b.ACOUNT, a.UT_OPEN, a.UT_CLOSE--, a.UT as UT_DUMMY
-            from REFMOD_FIN a, SOURCETRANS b
+    , MAINTAB
+        as (select a.STRIPE_ID, a.STOCK_ID, a.PARENT_UT, a.UT, b.AOPEN, b.AMIN, b.AMAX, b.ACLOSE, b.AVOLUME, b.ACOUNT, a.UT_OPEN, a.UT_CLOSE
+            from REFMOD a, SOURCETRANS b
             where a.STRIPE_ID = b.STRIPE_ID (+) and a.STOCK_ID = b.STOCK_ID (+) and a.UT = b.UT (+))
-    select --+ parallel(4)
-           STRIPE_ID, STOCK_ID, /*PARENT_UT,*/ UT, AOPEN, AMIN, AMAX, ACLOSE, AVOLUME, ACOUNT 
-    from MAIN_TAB
+    select STRIPE_ID, STOCK_ID, UT, AOPEN, AMIN, AMAX, ACLOSE, AVOLUME, ACOUNT
+    from MAINTAB
     model
-    reference st on (select * from REFMOD_FIN) dimension by (STRIPE_ID, STOCK_ID, UT) measures (/*PARENT_UT,*/ NEXT_STRIPE_UT, UT_OPEN, UT_CLOSE)
-    main MM partition by (STOCK_ID) dimension by (STRIPE_ID, PARENT_UT, UT) measures (AOPEN, AMIN, AMAX, ACLOSE, AVOLUME, ACOUNT/*, UT_DUMMY*/)
+    reference RM on (select * from REFMOD) dimension by (STRIPE_ID, STOCK_ID, UT) measures (UT_OPEN, UT_CLOSE)
+    main MM partition by (STOCK_ID) dimension by (STRIPE_ID, PARENT_UT, UT) measures (AOPEN, AMIN, AMAX, ACLOSE, AVOLUME, ACOUNT)
     rules iterate (18) (
-      AOPEN   [iteration_number + 2, any, any] = AOPEN        [cv (STRIPE_ID) - 1, cv (UT), st.UT_OPEN [cv (STRIPE_ID), cv (STOCK_ID), cv (UT)]]                                    
-    , ACLOSE  [iteration_number + 2, any, any] = ACLOSE       [cv (STRIPE_ID) - 1, cv (UT), st.UT_CLOSE[cv (STRIPE_ID), cv (STOCK_ID), cv (UT)]]                                    
-    , AMIN    [iteration_number + 2, any, any] = min (AMIN)   [cv (STRIPE_ID) - 1, cv (UT), any]                                    
-    , AMAX    [iteration_number + 2, any, any] = max (AMAX)   [cv (STRIPE_ID) - 1, cv (UT), any]                                    
+      AOPEN   [iteration_number + 2, any, any] =        AOPEN [cv (STRIPE_ID) - 1, cv (UT), rm.UT_OPEN [cv (STRIPE_ID), cv (STOCK_ID), cv (UT)]]                                    
+    , ACLOSE  [iteration_number + 2, any, any] =       ACLOSE [cv (STRIPE_ID) - 1, cv (UT), rm.UT_CLOSE[cv (STRIPE_ID), cv (STOCK_ID), cv (UT)]]                                    
+    , AMIN    [iteration_number + 2, any, any] =    min (AMIN)[cv (STRIPE_ID) - 1, cv (UT), any]                                    
+    , AMAX    [iteration_number + 2, any, any] =    max (AMAX)[cv (STRIPE_ID) - 1, cv (UT), any]                                    
     , AVOLUME [iteration_number + 2, any, any] = sum (AVOLUME)[cv (STRIPE_ID) - 1, cv (UT), any]                                    
-    , ACOUNT  [iteration_number + 2, any, any] = sum (ACOUNT) [cv (STRIPE_ID) - 1, cv (UT), any]                                    
+    , ACOUNT  [iteration_number + 2, any, any] = sum  (ACOUNT)[cv (STRIPE_ID) - 1, cv (UT), any]                                    
     )
     order by 1, 2, 3, 4
 ;
+
 
     insert into THINNING_LOG (TEST_CASE, ROW_COUNT, ALG_NAME, DURATION_IDS) values (p_case_name, l_max_transaction_num, 'MODE', systimestamp - l_op_start_tsltz);
    

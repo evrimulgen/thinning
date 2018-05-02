@@ -1,5 +1,5 @@
-drop user THINNING cascade;
 drop user THINNING_LIVE cascade;
+drop user THINNING cascade;
 
 create user THINNING identified by Qwertyu1 default tablespace DATA_064M;
 grant connect, resource, create view to THINNING;

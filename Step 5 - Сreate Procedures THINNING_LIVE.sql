@@ -636,9 +636,8 @@ begin
 
     l_opstart := systimestamp;
 
-    delete --+ index_asc(a STALES_PKIOT)
-           STALES a
-    where STRIPE_ID <= 18
+    delete STALES a
+    where STRIPE_ID <= 18 and rownum <= power (10, 5)
     returning STALE_T (STRIPE_ID, STOCK_ID, UT) bulk collect into l_StalesNonDistinct;
 
     l_tr.dur_Lock := THINNING.TLS_P.INTERVALDS2NUMBER (systimestamp - l_opstart);
@@ -694,7 +693,7 @@ begin
             loop
                 THIN_QUANTUM (result);
                 exit when result = 0;
-                THINNING.TLS_P.COMMIT_PERIODICAL (60);
+                THINNING.TLS_P.COMMIT_PERIODICAL (10);
             end loop;
         end if;
         
@@ -715,7 +714,7 @@ begin
     loop
         THIN_QUANTUM (result);
         exit when result = 0;
-        THINNING.TLS_P.COMMIT_PERIODICAL (60);
+        THINNING.TLS_P.COMMIT_PERIODICAL (10);
     end loop;
 
     commit;
@@ -727,5 +726,6 @@ end;
 exec SYS.DBMS_SCHEDULER.CREATE_JOB (job_name => 'THINNING_LIVE.THINNING_J'          , repeat_interval => 'FREQ=SECONDLY;INTERVAL=10', job_type => 'STORED_PROCEDURE', job_action => 'THINNING_LIVE.PROCESS_P.THIN_ALL_T', enabled => false);
 exec SYS.DBMS_SCHEDULER.CREATE_JOB (job_name => 'THINNING_LIVE.POLL_DIRECTORY_J'    , repeat_interval => 'FREQ=HOURLY;INTERVAL=1',   job_type => 'STORED_PROCEDURE', job_action => 'THINNING_LIVE.DOWNLOAD_P.POLL_DIRECTORY_T' , enabled => false);
 exec SYS.DBMS_SCHEDULER.CREATE_JOB (job_name => 'THINNING_LIVE.POLL_TRANSACTIONS_J1', repeat_interval => 'FREQ=MINUTELY;INTERVAL=1;BYSECOND=0', job_type => 'STORED_PROCEDURE', job_action => 'THINNING_LIVE.DOWNLOAD_P.POLL_TRANSACTIONS_T', enabled => false);
+
 
 

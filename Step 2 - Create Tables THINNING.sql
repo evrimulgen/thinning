@@ -21,7 +21,7 @@ drop table COMMIT_PERIODICAL_LOG;
 
 
 create table COMMIT_PERIODICAL_LOG (
-      TSLTZ     timestamp with local time zone
+      TSLTZ     timestamp with local time zone default systimestamp
     , TAG varchar2(256)
     , constraint COMMIT_PERIODICAL_LOG_PKIOT primary key (TSLTZ)
 ) organization index;

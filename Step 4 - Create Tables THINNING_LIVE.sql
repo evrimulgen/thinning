@@ -134,9 +134,7 @@ create table STALES (
     , UT            number not null
     , SEQ_NUM       number not null
     , constraint STALES_PKIOT primary key (STRIPE_ID, STOCK_ID, UT, SEQ_NUM)
-) organization index compress 3;
-
-
+) organization index;
 
 
 
